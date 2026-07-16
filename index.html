@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Mundi Eletrics — mobilidade elétrica com atitude, autonomia e tecnologia.">
+  <title>Mundi Eletrics | Mobilidade que move o futuro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="header" data-header>
+    <a class="brand" href="#inicio" aria-label="Mundi Eletrics — início">
+      <img src="assets/mundi-logo.png" alt="Mundi Eletrics">
+    </a>
+    <nav class="nav" aria-label="Navegação principal">
+      <a href="#experiencia">Experiência</a>
+      <a href="#desempenho">Desempenho</a>
+      <a href="#engenharia">Engenharia</a>
+      <a href="#detalhes">Detalhes</a>
+    </nav>
+    <a class="header-cta" href="#contato">Quero a minha <span>↗</span></a>
+    <button class="menu-button" type="button" aria-label="Abrir menu" aria-expanded="false" data-menu-button>
+      <span></span><span></span>
+    </button>
+  </header>
+
+  <main>
+    <section class="hero" id="inicio">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="hero-copy reveal visible">
+        <p class="eyebrow"><span></span> Mobilidade elétrica, sem limites</p>
+        <h1>Energia para<br><em>mover o agora.</em></h1>
+        <p class="hero-text">Design marcante, condução silenciosa e liberdade para transformar cada trajeto em experiência.</p>
+      </div>
+
+      <div class="product-stage" data-parallax>
+        <div class="orbit orbit-one" aria-hidden="true"></div>
+        <div class="orbit orbit-two" aria-hidden="true"></div>
+        <div class="product-halo" aria-hidden="true"></div>
+        <img class="product-image" src="assets/scooter-cutout.png" alt="Scooter elétrica Mundi em acabamento preto">
+        <div class="product-shadow" aria-hidden="true"></div>
+        <button class="hotspot hotspot-one" type="button" aria-label="Ver detalhe da iluminação em LED" aria-expanded="false" data-part="led"><span></span><b>LED</b></button>
+        <button class="hotspot hotspot-two" type="button" aria-label="Ver detalhe da bateria removível" aria-expanded="false" data-part="battery"><span></span><b>Bateria</b></button>
+        <button class="hotspot hotspot-three" type="button" aria-label="Ver detalhe do motor elétrico" aria-expanded="false" data-part="motor"><span></span><b>Motor</b></button>
+        <aside class="part-panel" aria-live="polite" data-part-panel>
+          <button type="button" aria-label="Fechar detalhe" data-part-close>×</button>
+          <small data-part-index>01 / 03</small>
+          <strong data-part-title>Iluminação em LED</strong>
+          <p data-part-copy>Mais presença e visibilidade para acompanhar seus trajetos de dia ou à noite.</p>
+          <a href="#detalhes">Explorar detalhes <span>↗</span></a>
+        </aside>
+      </div>
+
+      <div class="hero-bottom">
+        <a class="scroll-cue" href="#experiencia"><span>Role para explorar</span><i>↓</i></a>
+        <p>Silenciosa por natureza.<br>Marcante por escolha.</p>
+      </div>
+      <div class="hero-index" aria-hidden="true">01 <span>/</span> 05</div>
+    </section>
+
+    <section class="manifesto section" id="experiencia">
+      <div class="section-label reveal"><span>01</span> A experiência Mundi</div>
+      <p class="manifesto-text reveal">A cidade muda quando você deixa o ruído para trás. A Mundi combina <strong>presença, leveza e energia limpa</strong> para criar um jeito mais inteligente de ir além.</p>
+      <div class="manifesto-aside reveal">
+        <span>Feita para o seu ritmo</span>
+        <p>Para trabalhar, explorar ou simplesmente chegar com mais estilo.</p>
+      </div>
+    </section>
+
+    <section class="performance section" id="desempenho">
+      <div class="performance-bg" aria-hidden="true"></div>
+      <div class="section-label light reveal"><span>02</span> Força elétrica</div>
+      <div class="performance-copy reveal">
+        <p class="eyebrow"><span></span> Desempenho urbano</p>
+        <h2>Potência que<br>você <em>sente.</em></h2>
+        <p>Resposta imediata, condução estável e a liberdade de carregar energia para onde quiser.</p>
+      </div>
+      <div class="metrics reveal">
+        <article><strong data-count="60">0</strong><span>km de autonomia*</span></article>
+        <article><strong data-count="32">0</strong><span>km/h de velocidade*</span></article>
+        <article><strong data-count="1000">0</strong><span>W de potência*</span></article>
+      </div>
+      <p class="disclaimer">*Valores ilustrativos. Substituir pelas especificações oficiais do modelo.</p>
+    </section>
+
+    <section class="exploded" id="engenharia" data-exploded>
+      <div class="exploded-intro">
+        <p class="eyebrow"><span></span> Engenharia em movimento</p>
+        <h2>Uma máquina.<br><em>Parte por parte.</em></h2>
+        <p>Desça pela cena para abrir a scooter. Toque nos componentes para conhecer o que existe por dentro.</p>
+      </div>
+
+      <div class="parts-world" aria-label="Vista interativa dos componentes da scooter">
+        <div class="world-orbit" aria-hidden="true"></div>
+        <img class="assembled-scooter" src="assets/scooter-cutout.png" alt="Scooter Mundi completa" decoding="async">
+
+        <button class="float-part part-wheel" type="button" data-component="Roda dianteira" data-description="Pneu largo, disco ventilado e conjunto pensado para estabilidade em trajetos urbanos." aria-haspopup="dialog">
+          <img src="assets/parts/front-wheel.png" alt="Roda dianteira da scooter" decoding="async"><span aria-hidden="true"></span>
+        </button>
+        <button class="float-part part-seat" type="button" data-component="Banco" data-description="Assento amplo com apoio traseiro para uma posição confortável durante o deslocamento." aria-haspopup="dialog">
+          <img src="assets/parts/seat.png" alt="Banco da scooter" loading="lazy" decoding="async"><span aria-hidden="true"></span>
+        </button>
+        <button class="float-part part-rear" type="button" data-component="Conjunto traseiro" data-description="Chassi traseiro, suspensão e roda trabalham juntos para absorver irregularidades do caminho." aria-haspopup="dialog">
+          <img src="assets/parts/rear-chassis.png" alt="Conjunto traseiro da scooter" loading="lazy" decoding="async"><span aria-hidden="true"></span>
+        </button>
+        <button class="float-part part-light" type="button" data-component="Farol LED" data-description="Iluminação frontal de alta presença para ampliar a visibilidade em diferentes condições." aria-haspopup="dialog">
+          <img src="assets/parts/headlight.png" alt="Farol LED da scooter" loading="lazy" decoding="async"><span aria-hidden="true"></span>
+        </button>
+        <button class="float-part part-handlebar" type="button" data-component="Guidão e comandos" data-description="Controles posicionados para acesso direto, leitura simples e resposta imediata." aria-haspopup="dialog">
+          <img src="assets/parts/handlebar.png" alt="Guidão e comandos da scooter" loading="lazy" decoding="async"><span aria-hidden="true"></span>
+        </button>
+        <button class="float-part part-battery" type="button" data-component="Bateria" data-description="Módulo central de energia removível para facilitar a recarga na rotina." aria-haspopup="dialog">
+          <img src="assets/parts/battery.png" alt="Bateria da scooter" loading="lazy" decoding="async"><span aria-hidden="true"></span>
+        </button>
+        <button class="float-part part-controller" type="button" data-component="Controlador" data-description="Gerencia a entrega de energia para uma aceleração previsível e eficiente." aria-haspopup="dialog">
+          <img src="assets/parts/controller.png" alt="Controlador eletrônico da scooter" loading="lazy" decoding="async"><span aria-hidden="true"></span>
+        </button>
+        <button class="float-part part-shock" type="button" data-component="Amortecedor" data-description="Suspensão com curso dedicado para equilibrar conforto e controle." aria-haspopup="dialog">
+          <img src="assets/parts/shock.png" alt="Amortecedor da scooter" loading="lazy" decoding="async"><span aria-hidden="true"></span>
+        </button>
+        <button class="float-part part-fork" type="button" data-component="Garfo dianteiro" data-description="Estrutura reforçada para direcionamento preciso e suporte do conjunto frontal." aria-haspopup="dialog">
+          <img src="assets/parts/fork.png" alt="Garfo dianteiro da scooter" loading="lazy" decoding="async"><span aria-hidden="true"></span>
+        </button>
+
+        <div class="component-popover" id="component-popover" role="dialog" aria-modal="false" aria-labelledby="component-title" hidden data-component-popover>
+          <button class="component-popover-close" type="button" aria-label="Fechar informações" data-component-close>×</button>
+          <small>COMPONENTE MUNDI</small>
+          <h3 id="component-title" data-component-title></h3>
+          <p data-component-copy></p>
+          <a href="#contato">Consultar especificações <span>↗</span></a>
+        </div>
+      </div>
+
+      <div class="exploded-outro">
+        <h2>Precisão em<br><em>cada encaixe.</em></h2>
+        <p>Continue descendo. As partes retornam ao centro e a scooter volta a ser uma só.</p>
+      </div>
+    </section>
+
+    <section class="details section" id="detalhes">
+      <div class="details-head reveal">
+        <div class="section-label"><span>04</span> Design funcional</div>
+        <h2>Cada linha tem<br><em>uma intenção.</em></h2>
+      </div>
+      <div class="feature-viewer reveal" data-feature-viewer>
+        <div class="feature-media">
+          <img src="assets/scooter-cutout.png" alt="Detalhes da scooter elétrica Mundi">
+          <span class="scan-line" aria-hidden="true"></span>
+        </div>
+        <div class="feature-list" role="tablist" aria-label="Destaques do produto">
+          <button class="feature active" type="button" role="tab" aria-selected="true" data-feature="01">
+            <span>01</span><div><strong>Presença urbana</strong><p>Pneus largos e estrutura robusta para uma condução firme e confortável.</p></div><i>↗</i>
+          </button>
+          <button class="feature" type="button" role="tab" aria-selected="false" data-feature="02">
+            <span>02</span><div><strong>Energia removível</strong><p>Mais praticidade para recarregar em casa, no trabalho ou onde estiver.</p></div><i>↗</i>
+          </button>
+          <button class="feature" type="button" role="tab" aria-selected="false" data-feature="03">
+            <span>03</span><div><strong>Conforto em movimento</strong><p>Banco amplo e suspensão pensada para suavizar o caminho.</p></div><i>↗</i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="freedom section">
+      <div class="freedom-lines" aria-hidden="true"></div>
+      <div class="freedom-copy reveal">
+        <div class="section-label light"><span>05</span> Um novo movimento</div>
+        <h2>Menos espera.<br>Mais <em>cidade.</em></h2>
+        <p>Leve sua energia com você e redescubra a liberdade nos trajetos de todos os dias.</p>
+      </div>
+      <div class="freedom-mark reveal" aria-hidden="true">M</div>
+    </section>
+
+    <section class="contact section" id="contato">
+      <div class="contact-orbit" aria-hidden="true"></div>
+      <div class="contact-copy reveal">
+        <p class="eyebrow"><span></span> Seu próximo trajeto começa aqui</p>
+        <h2>Pronto para<br><em>mudar de energia?</em></h2>
+        <p>Fale com a Mundi e descubra o modelo ideal para a sua rotina.</p>
+        <a class="primary-button" href="https://wa.me/5500000000000" target="_blank" rel="noopener">Conversar no WhatsApp <span>↗</span></a>
+      </div>
+      <footer>
+        <img src="assets/mundi-logo.png" alt="Mundi Eletrics">
+        <p>Mobilidade elétrica para uma cidade em movimento.</p>
+        <div><a href="#inicio">Voltar ao topo ↑</a><span>© 2026 Mundi Eletrics</span></div>
+      </footer>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
