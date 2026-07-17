@@ -121,6 +121,7 @@ const heroProductAnchor = document.querySelector('[data-hero-product-anchor]');
 const journeyStage = document.querySelector('[data-journey-stage]');
 const journeyVisual = document.querySelector('[data-journey-visual]');
 const journeyMounted = document.querySelector('[data-journey-mounted]');
+const journeyFlatlay = document.querySelector('[data-journey-flatlay]');
 const journeyPieces = document.querySelector('[data-journey-pieces]');
 const pieceNodes = [...document.querySelectorAll('[data-piece]')];
 const journeyHotspots = document.querySelector('[data-journey-hotspots]');
@@ -138,10 +139,10 @@ const progressPercent = document.querySelector('[data-scroll-percent]');
 const componentButtons = [...document.querySelectorAll('[data-journey-component]')];
 
 const models = {
-  black: { name: 'Mundi Black', shortName: 'Black', mounted: 'assets/models/black-mounted.png', edge: [49,215,255] },
-  green: { name: 'Mundi Green', shortName: 'Green', mounted: 'assets/models/green-mounted.png', edge: [90,227,157] },
-  blue: { name: 'Mundi Blue', shortName: 'Blue', mounted: 'assets/models/blue-mounted.png', edge: [74,157,255] },
-  orange: { name: 'Mundi Orange', shortName: 'Orange', mounted: 'assets/models/orange-mounted.png', edge: [255,155,69] }
+  black: { name: 'Mundi Black', shortName: 'Black', mounted: 'assets/models/black-mounted.png', disassembled: 'assets/models/black-disassembled.png', edge: [49,215,255] },
+  green: { name: 'Mundi Green', shortName: 'Green', mounted: 'assets/models/green-mounted.png', disassembled: 'assets/models/green-disassembled.png', edge: [90,227,157] },
+  blue: { name: 'Mundi Blue', shortName: 'Blue', mounted: 'assets/models/blue-mounted.png', disassembled: 'assets/models/blue-disassembled.png', edge: [74,157,255] },
+  orange: { name: 'Mundi Orange', shortName: 'Orange', mounted: 'assets/models/orange-mounted.png', disassembled: 'assets/models/orange-disassembled.png', edge: [255,155,69] }
 };
 const modelAssetCache = new Map();
 const xrayCache = new Map();
@@ -208,7 +209,7 @@ function setComponentsInteractive(interactive) {
 function preloadModelAssets(modelKey) {
   if (modelAssetCache.has(modelKey)) return modelAssetCache.get(modelKey);
   const model = models[modelKey];
-  const urls = [model.mounted, ...pieceNodes.map(piece => `assets/models/parts/${modelKey}-${piece.dataset.piece}.png`)];
+  const urls = [model.mounted, model.disassembled, ...pieceNodes.map(piece => `assets/models/parts/${modelKey}-${piece.dataset.piece}.png`)];
   const request = Promise.all(urls.map(url => new Promise(resolve => {
     const image = new Image();
     image.decoding = 'async';
@@ -257,6 +258,7 @@ async function applyModel(modelKey, sourceElement) {
     document.documentElement.dataset.model = modelKey;
     journeyMounted.src = model.mounted;
     journeyMounted.alt = `${model.name} montada`;
+    if (journeyFlatlay) journeyFlatlay.src = model.disassembled;
     pieceNodes.forEach(piece => { piece.src = `assets/models/parts/${modelKey}-${piece.dataset.piece}.png`; });
     if (featureProduct) { featureProduct.src = model.mounted; featureProduct.alt = `Detalhes da ${model.name}`; }
     if (labProduct) { labProduct.src = model.mounted; labProduct.alt = `${model.name} em exposição interativa`; }
@@ -276,7 +278,7 @@ async function applyModel(modelKey, sourceElement) {
     const progress = journeyTimeline?.progress() || 0;
     setComponentsInteractive(progress >= journeyInteractiveRange[0] && progress <= journeyInteractiveRange[1]);
   } })
-    .to(journeyVisual, { autoAlpha: .12, duration: .2, ease: 'power2.in' }, 0)
+    .to(journeyVisual, { autoAlpha: .58, duration: .18, ease: 'power2.in' }, 0)
     .call(swapImages, null, .2)
     .to(journeyVisual, { autoAlpha:1, duration: .42, ease: 'power3.out' }, .2);
 }
@@ -465,11 +467,15 @@ function setupJourney() {
   const exploreStart = Math.min(.7, spreadStart + .085);
   const exploreEnd = Math.min(.76, exploreStart + .09);
   const reassembleStart = exploreEnd;
-  const mountedReturn = .87;
+  const flatlayReturn = reassembleStart + .028;
+  const partsGone = flatlayReturn + .058;
+  const mountedReturn = partsGone + .035;
+  const exitStart = Math.min(.955, mountedReturn + .075);
   journeyInteractiveRange = [exploreStart, exploreEnd];
 
   gsap.set(journeyStage, { autoAlpha: 1, transformOrigin: '50% 50%' });
   gsap.set(journeyMounted, { xPercent:-50, yPercent:-50, x:heroState.x, y:heroState.y, scale:heroState.scale, autoAlpha:1, transformOrigin:'50% 50%' });
+  gsap.set(journeyFlatlay, { xPercent:-50, yPercent:-50, x:0, y:0, scale:.86, rotation:-.8, autoAlpha:0, transformOrigin:'50% 50%' });
   gsap.set(journeyPieces, { xPercent: -50, yPercent: -50 });
   pieceNodes.forEach(piece => {
     const [x,y,scale,rotation] = assembled[piece.dataset.piece];
@@ -494,7 +500,7 @@ function setupJourney() {
       endTrigger: '#modelos',
       start: 'top top',
       end: 'top 92%',
-      scrub: 1.12,
+      scrub: isMobile ? .82 : .68,
       invalidateOnRefresh: true,
       onUpdate: self => {
         const velocity = self.getVelocity();
@@ -511,16 +517,20 @@ function setupJourney() {
     .to(journeyVisual, { x:isMobile ? '28vw' : '13vw', y:isMobile ? '12vh' : 0, scale:isMobile ? .5 : .9, duration:.1 }, .17)
     .to('.journey-caption', { autoAlpha:1, duration:.055 }, .12)
     .to(journeyVisual, { x:0, y:0, scale:1, duration:.1 }, openStart - .1)
-    .to(journeyMounted, { y:0, scale:.92, rotation:0, autoAlpha:.1, duration:.09 }, openStart - .02)
+    .to(journeyMounted, { y:0, scale:.93, rotation:0, autoAlpha:0, duration:.075, ease:'power2.inOut' }, openStart - .025)
+    .to(journeyFlatlay, { scale:1, rotation:0, autoAlpha:.94, duration:.075, ease:'power2.inOut' }, openStart - .025)
+    .to(journeyFlatlay, { scale:1.025, autoAlpha:0, duration:.085, ease:'power2.inOut' }, spreadStart + .025)
     .to('.exploded-intro', { autoAlpha:0, y:-22, duration:.055 }, openStart)
     .to(journeyHotspots, { x:0, y:0, autoAlpha:1, duration:.055 }, exploreStart - .02)
     .to(componentButtons, { autoAlpha:1, scale:1, stagger:.006, duration:.06 }, exploreStart)
     .to(componentButtons, { autoAlpha:0, scale:.72, stagger:.005, duration:.05 }, exploreEnd - .015)
     .to(journeyHotspots, { autoAlpha:0, duration:.04 }, exploreEnd)
-    .to(journeyMounted, { y:0, scale:1, rotation:0, autoAlpha:1, duration:.06 }, mountedReturn)
+    .to(journeyFlatlay, { scale:1, rotation:0, autoAlpha:.9, duration:.055, ease:'power2.inOut' }, flatlayReturn)
+    .to(journeyFlatlay, { scale:.94, autoAlpha:0, duration:.06, ease:'power2.inOut' }, mountedReturn)
+    .to(journeyMounted, { y:0, scale:1, rotation:0, autoAlpha:1, duration:.065, ease:'power2.inOut' }, mountedReturn)
     .to('.exploded-outro', { autoAlpha:1, y:0, duration:.065 }, mountedReturn)
-    .to(journeyMounted, { y:'-5vh', scale:.86, autoAlpha:0, duration:.04 }, .95)
-    .to(['.journey-caption',journeyStage], { autoAlpha:0, duration:.03 }, .97);
+    .to(journeyMounted, { y:'-5vh', scale:.86, autoAlpha:0, duration:.045 }, exitStart)
+    .to(['.journey-caption',journeyStage], { autoAlpha:0, duration:.035 }, exitStart + .025);
 
   pieceNodes.forEach((piece, index) => {
     const [sx,sy,ss,sr] = spread[piece.dataset.piece];
@@ -529,7 +539,7 @@ function setupJourney() {
       .to(piece, { x:ax, y:ay, scale:as, rotation:ar, autoAlpha:1, duration:.09 }, openStart - .025 + index * .003)
       .to(piece, { x:sx, y:sy, scale:ss, rotation:sr, autoAlpha:1, duration:.12 }, spreadStart + index * .004)
       .to(piece, { x:ax, y:ay, scale:as, rotation:ar, duration:.075 }, reassembleStart + index * .003)
-      .to(piece, { autoAlpha:0, duration:.035 }, .86 + index * .002);
+      .to(piece, { autoAlpha:0, duration:.035, ease:'power2.inOut' }, partsGone + index * .002);
   });
 
   journeyTimeline.eventCallback('onUpdate', () => {
@@ -770,6 +780,7 @@ async function runLoader() {
   const tasks = [
     preloadModelAssets(selectedModel),
     waitForImage(journeyMounted),
+    waitForImage(journeyFlatlay),
     document.fonts?.ready || Promise.resolve(true)
   ];
   let completed = 0;
@@ -815,12 +826,18 @@ async function runLoader() {
 }
 
 let journeyLayout = innerWidth <= 900 ? 'mobile' : 'desktop';
+let journeyViewport = { width: innerWidth, height: innerHeight };
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    journeyLayout = innerWidth <= 900 ? 'mobile' : 'desktop';
-    if (hasGsap && !reduceMotion) setupJourney();
+    const nextLayout = innerWidth <= 900 ? 'mobile' : 'desktop';
+    const meaningfulResize = nextLayout !== journeyLayout
+      || Math.abs(innerWidth - journeyViewport.width) > 40
+      || Math.abs(innerHeight - journeyViewport.height) > 120;
+    journeyLayout = nextLayout;
+    journeyViewport = { width: innerWidth, height: innerHeight };
+    if (meaningfulResize && hasGsap && !reduceMotion) setupJourney();
     if (hasGsap) ScrollTrigger.refresh(true);
   }, 180);
 });
