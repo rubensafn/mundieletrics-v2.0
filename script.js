@@ -1,10 +1,14 @@
 const menuButton = document.querySelector('[data-menu-button]');
 const nav = document.querySelector('.nav');
 
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.scrollTo(0, 0);
+
 menuButton.addEventListener('click', () => {
   const open = nav.classList.toggle('open');
   menuButton.setAttribute('aria-expanded', String(open));
   menuButton.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+  if (open) nav.querySelector('a')?.focus({ preventScroll: true });
 });
 
 nav.querySelectorAll('a').forEach(link => link.addEventListener('click', () => {
@@ -50,8 +54,11 @@ document.querySelectorAll('[data-feature]').forEach(button => {
     document.querySelectorAll('[data-feature]').forEach(item => {
       const active = item === button;
       item.classList.toggle('active', active);
-      item.setAttribute('aria-selected', String(active));
+      item.setAttribute('aria-pressed', String(active));
     });
+    const xrayPoints = { '01': [32, 38], '02': [57, 57], '03': [76, 67] };
+    const point = xrayPoints[button.dataset.feature];
+    if (point) setXrayPosition(point[0], point[1]);
   });
 });
 
@@ -102,15 +109,28 @@ document.querySelector('[data-part-close]').addEventListener('click', closePartP
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const hasGsap = Boolean(window.gsap && window.ScrollTrigger);
 const header = document.querySelector('[data-header]');
+const loader = document.querySelector('[data-loader]');
+const loaderCount = document.querySelector('[data-loader-count]');
+const loaderBar = document.querySelector('[data-loader-bar]');
+const backToTop = document.querySelector('[data-back-to-top]');
+const modelDock = document.querySelector('[data-model-dock]');
+const dockName = document.querySelector('[data-dock-name]');
+const hero = document.querySelector('.hero');
+const main = document.querySelector('main');
+const heroProductAnchor = document.querySelector('[data-hero-product-anchor]');
 const journeyStage = document.querySelector('[data-journey-stage]');
+const journeyVisual = document.querySelector('[data-journey-visual]');
 const journeyMounted = document.querySelector('[data-journey-mounted]');
 const journeyPieces = document.querySelector('[data-journey-pieces]');
 const pieceNodes = [...document.querySelectorAll('[data-piece]')];
 const journeyHotspots = document.querySelector('[data-journey-hotspots]');
 const journeyName = document.querySelector('[data-journey-name]');
 const journeyState = document.querySelector('[data-journey-state]');
-const heroProduct = document.querySelector('.product-image');
-const featureProduct = document.querySelector('.feature-media img');
+const featureProduct = document.querySelector('[data-xray-product]');
+const xrayStage = document.querySelector('[data-xray-stage]');
+const xrayOverlay = document.querySelector('[data-xray-overlay]');
+const xrayCanvas = document.querySelector('[data-xray-canvas]');
+const xrayRange = document.querySelector('[data-xray-range]');
 const labProduct = document.querySelector('[data-lab-product]');
 const labModel = document.querySelector('[data-lab-model]');
 const progressBar = document.querySelector('[data-scroll-progress]');
@@ -118,12 +138,13 @@ const progressPercent = document.querySelector('[data-scroll-percent]');
 const componentButtons = [...document.querySelectorAll('[data-journey-component]')];
 
 const models = {
-  black: { name: 'Mundi Black', mounted: 'assets/models/black-mounted.png' },
-  green: { name: 'Mundi Green', mounted: 'assets/models/green-mounted.png' },
-  blue: { name: 'Mundi Blue', mounted: 'assets/models/blue-mounted.png' },
-  orange: { name: 'Mundi Orange', mounted: 'assets/models/orange-mounted.png' }
+  black: { name: 'Mundi Black', shortName: 'Black', mounted: 'assets/models/black-mounted.png', edge: [49,215,255] },
+  green: { name: 'Mundi Green', shortName: 'Green', mounted: 'assets/models/green-mounted.png', edge: [90,227,157] },
+  blue: { name: 'Mundi Blue', shortName: 'Blue', mounted: 'assets/models/blue-mounted.png', edge: [74,157,255] },
+  orange: { name: 'Mundi Orange', shortName: 'Orange', mounted: 'assets/models/orange-mounted.png', edge: [255,155,69] }
 };
 const modelAssetCache = new Map();
+const xrayCache = new Map();
 
 const focusPoints = {
   handlebar: ['50%', '10%'], seat: ['73%', '19%'], frame: ['49%', '42%'],
@@ -134,29 +155,42 @@ let selectedModel = 'black';
 let modelRequestId = 0;
 let activeComponent = null;
 let componentsInteractive = false;
-let lastScrollY = window.scrollY;
-let scrollTicking = false;
+let journeyTimeline = null;
+let hotspotFloatTweens = [];
+let modelSwapTimeline = null;
+let journeyInteractiveRange = [.7, .8];
 
-function updateScrollUI() {
-  const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
-  const progress = Math.min(1, Math.max(0, scrollY / max));
+function updateScrollUI(progress = 0, velocity = 0) {
   document.documentElement.style.setProperty('--scroll-progress', progress.toFixed(4));
   if (progressBar) progressBar.style.setProperty('--scroll-progress', progress.toFixed(4));
   if (progressPercent) progressPercent.textContent = String(Math.round(progress * 100)).padStart(2, '0');
   header?.classList.toggle('scrolled', scrollY > 42);
-
-  const velocity = Math.min(1, Math.abs(scrollY - lastScrollY) / 56);
-  journeyStage?.style.setProperty('--velocity', velocity.toFixed(3));
-  lastScrollY = scrollY;
-  scrollTicking = false;
+  const showBackToTop = scrollY > innerHeight * .72 && !activeComponent;
+  backToTop?.classList.toggle('visible', showBackToTop);
+  if (backToTop) backToTop.disabled = !showBackToTop;
+  journeyStage?.style.setProperty('--velocity', Math.min(1, Math.abs(velocity) / 1400).toFixed(3));
 }
 
-window.addEventListener('scroll', () => {
-  if (scrollTicking) return;
-  scrollTicking = true;
-  requestAnimationFrame(updateScrollUI);
-}, { passive: true });
-updateScrollUI();
+function setupGlobalScrollUI() {
+  if (hasGsap) {
+    gsap.registerPlugin(ScrollTrigger);
+    ScrollTrigger.create({
+      start: 0,
+      end: 'max',
+      onUpdate: self => updateScrollUI(self.progress, self.getVelocity())
+    });
+    updateScrollUI(scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight), 0);
+    return;
+  }
+  const heroObserver = new IntersectionObserver(([entry]) => {
+    header?.classList.toggle('scrolled', !entry.isIntersecting);
+    backToTop?.classList.toggle('visible', !entry.isIntersecting);
+    if (backToTop) backToTop.disabled = entry.isIntersecting;
+  }, { threshold: .2 });
+  if (hero) heroObserver.observe(hero);
+}
+
+backToTop?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }));
 
 function setComponentsInteractive(interactive) {
   if (componentsInteractive === interactive) return;
@@ -167,6 +201,7 @@ function setComponentsInteractive(interactive) {
     button.tabIndex = interactive ? 0 : -1;
     button.setAttribute('aria-hidden', String(!interactive));
   });
+  hotspotFloatTweens.forEach(tween => interactive ? tween.play() : tween.pause());
   if (!interactive && activeComponent) closeComponent({ restoreFocus: false });
 }
 
@@ -193,7 +228,8 @@ async function applyModel(modelKey, sourceElement) {
   if (!model || modelKey === selectedModel && sourceElement?.classList.contains('active')) return;
   const previousModel = selectedModel;
   const requestId = ++modelRequestId;
-  selectedModel = modelKey;
+  const wasInteractive = componentsInteractive;
+  setComponentsInteractive(false);
   if (activeComponent) closeComponent({ restoreFocus: false });
 
   document.documentElement.classList.add('model-loading');
@@ -205,8 +241,10 @@ async function applyModel(modelKey, sourceElement) {
   sourceElement?.removeAttribute('aria-busy');
   if (!loaded) {
     selectedModel = previousModel;
+    setComponentsInteractive(wasInteractive);
     return;
   }
+  selectedModel = modelKey;
 
   document.querySelectorAll('[data-model-choice]').forEach(button => {
     const active = button.dataset.modelChoice === modelKey;
@@ -216,29 +254,31 @@ async function applyModel(modelKey, sourceElement) {
   document.querySelectorAll('[data-model-card]').forEach(card => card.classList.toggle('active', card.dataset.model === modelKey));
 
   const swapImages = () => {
+    document.documentElement.dataset.model = modelKey;
     journeyMounted.src = model.mounted;
     journeyMounted.alt = `${model.name} montada`;
     pieceNodes.forEach(piece => { piece.src = `assets/models/parts/${modelKey}-${piece.dataset.piece}.png`; });
-    if (heroProduct) { heroProduct.src = model.mounted; heroProduct.alt = `${model.name} montada`; }
     if (featureProduct) { featureProduct.src = model.mounted; featureProduct.alt = `Detalhes da ${model.name}`; }
     if (labProduct) { labProduct.src = model.mounted; labProduct.alt = `${model.name} em exposição interativa`; }
     if (labModel) labModel.textContent = model.name;
     if (journeyName) journeyName.textContent = model.name;
+    if (dockName) dockName.textContent = model.shortName;
+    renderXray(modelKey);
   };
 
   if (!hasGsap || reduceMotion) {
     swapImages();
+    setComponentsInteractive(wasInteractive);
     return;
   }
-  const mountedTargets = [journeyMounted, heroProduct].filter(Boolean);
-  const mountedOpacities = mountedTargets.map(target => Number(gsap.getProperty(target, 'opacity')) || 0);
-  const pieceOpacities = pieceNodes.map(piece => Number(gsap.getProperty(piece, 'opacity')) || 0);
-  gsap.timeline({ defaults: { overwrite: false } })
-    .to(mountedTargets, { autoAlpha: 0, duration: .2, ease: 'power2.in' }, 0)
-    .to(pieceNodes, { autoAlpha: 0, duration: .18, ease: 'power2.in' }, 0)
+  modelSwapTimeline?.kill();
+  modelSwapTimeline = gsap.timeline({ defaults: { overwrite: 'auto' }, onComplete: () => {
+    const progress = journeyTimeline?.progress() || 0;
+    setComponentsInteractive(progress >= journeyInteractiveRange[0] && progress <= journeyInteractiveRange[1]);
+  } })
+    .to(journeyVisual, { autoAlpha: .12, duration: .2, ease: 'power2.in' }, 0)
     .call(swapImages, null, .2)
-    .to(mountedTargets, { autoAlpha: index => mountedOpacities[index], duration: .48, ease: 'power3.out' }, .2)
-    .to(pieceNodes, { autoAlpha: index => pieceOpacities[index], duration: .38, ease: 'power3.out' }, .2);
+    .to(journeyVisual, { autoAlpha:1, duration: .42, ease: 'power3.out' }, .2);
 }
 
 document.querySelectorAll('[data-model-choice]').forEach(button => button.addEventListener('click', () => applyModel(button.dataset.modelChoice, button)));
@@ -259,6 +299,7 @@ const componentLayer = document.querySelector('[data-component-layer]');
 const componentBackdrop = document.querySelector('[data-component-backdrop]');
 const componentFocusVisual = document.querySelector('.component-focus-visual');
 const componentFocusImage = document.querySelector('[data-component-focus-image]');
+const componentContactLink = componentPopover?.querySelector('a[href="#contato"]');
 
 componentButtons.forEach(button => {
   button.setAttribute('aria-controls', 'component-popover');
@@ -280,6 +321,12 @@ function closeComponent({ restoreFocus = true } = {}) {
   const finish = () => {
     componentLayer.classList.remove('active');
     componentLayer.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('component-open');
+    if (main) main.inert = false;
+    if (header) header.inert = false;
+    if (modelDock) modelDock.inert = false;
+    if (journeyStage) journeyStage.inert = false;
+    if (hasGsap) requestAnimationFrame(() => ScrollTrigger.refresh());
     if (hasGsap) gsap.set(componentFocusImage, { clearProps: 'scale,transformOrigin' });
     if (restoreFocus && componentsInteractive) previous.focus();
   };
@@ -312,6 +359,13 @@ function openComponent(button) {
   componentFocusVisual.style.setProperty('--focus-y', focusY);
   componentLayer.classList.add('active');
   componentLayer.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('component-open');
+  if (main) main.inert = true;
+  if (header) header.inert = true;
+  if (modelDock) modelDock.inert = true;
+  if (journeyStage) journeyStage.inert = true;
+  if (backToTop) backToTop.disabled = true;
+  componentClose?.focus({ preventScroll: true });
 
   if (!hasGsap || reduceMotion) {
     componentClose?.focus({ preventScroll: true });
@@ -327,7 +381,7 @@ function openComponent(button) {
   gsap.set(componentFocusImage, { transformOrigin: `${focusX} ${focusY}`, scale: 1 });
   gsap.set(componentFocusVisual, { xPercent: -50, yPercent: -50, x: startX, y: startY, scale: startScale, rotation: 0, autoAlpha: 1 });
   gsap.set(componentPopover, { x: 46, autoAlpha: 0 });
-  gsap.timeline({ onComplete: () => componentClose?.focus({ preventScroll: true }) })
+  gsap.timeline()
     .to(componentBackdrop, { opacity: 1, duration: .42, ease: 'power2.out' }, 0)
     .to(componentFocusVisual, { x: 0, y: 0, scale: 1, rotation: -1.5, duration: .72, ease: 'power3.out' }, 0)
     .to(componentFocusImage, { scale: 1.12, duration: .78, ease: 'power3.out' }, .04)
@@ -336,7 +390,12 @@ function openComponent(button) {
 
 componentButtons.forEach(button => button.addEventListener('click', () => openComponent(button)));
 componentClose?.addEventListener('click', () => closeComponent());
-componentBackdrop?.addEventListener('click', () => closeComponent({ restoreFocus: false }));
+componentBackdrop?.addEventListener('click', () => closeComponent());
+componentContactLink?.addEventListener('click', event => {
+  event.preventDefault();
+  closeComponent({ restoreFocus:false });
+  setTimeout(() => document.querySelector('#contato')?.scrollIntoView({ behavior:reduceMotion ? 'auto' : 'smooth' }), reduceMotion ? 0 : 520);
+});
 
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
@@ -359,30 +418,17 @@ document.addEventListener('keydown', event => {
 function setupJourney() {
   if (!journeyStage) return;
   if (!hasGsap || reduceMotion) {
-    const engineering = document.querySelector('[data-exploded]');
-    const top = engineering
-      ? engineering.offsetTop + Math.max(0, engineering.offsetHeight * .42 - innerHeight / 2)
-      : innerHeight;
-    Object.assign(journeyStage.style, {
-      position: 'absolute',
-      inset: 'auto 0 auto 0',
-      top: `${top}px`,
-      height: `${innerHeight}px`,
-      visibility: 'visible',
-      opacity: '1'
-    });
+    Object.assign(journeyStage.style, { position:'absolute', inset:'0', height:'100dvh', visibility:'visible', opacity:'1' });
     Object.assign(journeyMounted.style, {
       left: '50%',
       top: '50%',
       transform: 'translate(-50%,-50%)',
       opacity: '1'
     });
-    document.querySelector('.journey-caption')?.style.setProperty('opacity', '1');
     return;
   }
   gsap.registerPlugin(ScrollTrigger);
   const isMobile = innerWidth <= 900;
-  const baseScale = isMobile ? .88 : .82;
   const assembled = {
     handlebar: ['-3vw','-20vh',.82,0], seat: ['16vw','-5vh',.84,0], frame: ['0vw','5vh',.82,0],
     fork: ['-16vw','-1vh',.84,0], battery: ['8vw','7vh',.8,0], controller: ['2vw','12vh',.76,0],
@@ -398,8 +444,32 @@ function setupJourney() {
     'front-wheel': ['-14vw','13vh',1,-7], 'rear-wheel': ['14vw','13vh',1,6]
   };
 
-  gsap.set(journeyStage, { autoAlpha: 0, transformOrigin: '50% 50%' });
-  gsap.set(journeyMounted, { xPercent: -50, yPercent: -50, transformOrigin: '50% 50%' });
+  const getHeroState = () => {
+    const rect = heroProductAnchor?.getBoundingClientRect();
+    if (!rect) return { x:0, y:0, scale:1 };
+    const documentLeft = rect.left + scrollX;
+    const documentTop = rect.top + scrollY;
+    const scale = Math.min(rect.width / Math.max(1, journeyMounted.offsetWidth), rect.height / Math.max(1, journeyMounted.offsetHeight)) * (isMobile ? .82 : .9);
+    return {
+      x: documentLeft + rect.width / 2 - innerWidth / 2,
+      y: documentTop + rect.height / 2 - innerHeight / 2,
+      scale: gsap.utils.clamp(.78, 1.55, scale)
+    };
+  };
+  const heroState = getHeroState();
+  const explodedSection = document.querySelector('.exploded');
+  const modelsSection = document.querySelector('#modelos');
+  const journeyDistance = Math.max(1, (modelsSection?.offsetTop || document.documentElement.scrollHeight) - innerHeight * .92);
+  const openStart = gsap.utils.clamp(.48, .62, ((explodedSection?.offsetTop || journeyDistance * .6) - innerHeight * .35) / journeyDistance);
+  const spreadStart = openStart + .045;
+  const exploreStart = Math.min(.7, spreadStart + .085);
+  const exploreEnd = Math.min(.76, exploreStart + .09);
+  const reassembleStart = exploreEnd;
+  const mountedReturn = .87;
+  journeyInteractiveRange = [exploreStart, exploreEnd];
+
+  gsap.set(journeyStage, { autoAlpha: 1, transformOrigin: '50% 50%' });
+  gsap.set(journeyMounted, { xPercent:-50, yPercent:-50, x:heroState.x, y:heroState.y, scale:heroState.scale, autoAlpha:1, transformOrigin:'50% 50%' });
   gsap.set(journeyPieces, { xPercent: -50, yPercent: -50 });
   pieceNodes.forEach(piece => {
     const [x,y,scale,rotation] = assembled[piece.dataset.piece];
@@ -407,58 +477,66 @@ function setupJourney() {
   });
   gsap.set(journeyHotspots, { xPercent: -50, yPercent: -50, autoAlpha: 0 });
   gsap.set(componentButtons, { autoAlpha: 0, scale: .65 });
+  gsap.set('.journey-caption', { autoAlpha: 0 });
+  gsap.set('.exploded-intro', { autoAlpha:1, y:0 });
   gsap.set('.exploded-outro', { autoAlpha: 0 });
 
-  const tilt = gsap.quickTo(journeyStage, 'rotation', { duration: .45, ease: 'power2.out' });
-  const timeline = gsap.timeline({
+  hotspotFloatTweens.forEach(tween => tween.kill());
+  hotspotFloatTweens = [];
+  gsap.killTweensOf(journeyVisual, 'rotation');
+  const tilt = gsap.quickTo(journeyVisual, 'rotation', { duration: .45, ease: 'power2.out' });
+  journeyTimeline?.scrollTrigger?.kill();
+  journeyTimeline?.kill();
+  journeyTimeline = gsap.timeline({
     defaults: { ease: 'none' },
     scrollTrigger: {
-      trigger: '.manifesto',
-      endTrigger: '.product-lab',
-      start: 'top 82%',
-      end: 'top 20%',
-      scrub: 1.08,
+      trigger: '.hero',
+      endTrigger: '#modelos',
+      start: 'top top',
+      end: 'top 92%',
+      scrub: 1.12,
       invalidateOnRefresh: true,
       onUpdate: self => {
-        const interactive = self.progress >= .39 && self.progress <= .67;
-        setComponentsInteractive(interactive);
-        journeyState.textContent = interactive ? 'Toque para explorar' : self.progress < .39 ? 'Em movimento' : 'Remontando';
         const velocity = self.getVelocity();
         tilt(gsap.utils.clamp(-1.8, 1.8, velocity / 900));
-      }
+      },
+      onScrubComplete: () => tilt(0)
     }
   });
 
-  timeline
-    .to(journeyStage, { autoAlpha: 1, duration: .035 }, 0)
-    .fromTo(journeyMounted, { x: 0, y: '10vh', scale: baseScale, autoAlpha: 0 }, { x: 0, y: 0, scale: 1, autoAlpha: 1, duration: .11 }, .01)
-    .to('.journey-caption', { autoAlpha: 1, duration: .07 }, .04)
-    .to(journeyMounted, { y: '-2vh', scale: .94, rotation: -1.1, duration: .14 }, .15)
-    .to(journeyMounted, { y: '1vh', scale: .98, rotation: .8, duration: .12 }, .29)
-    .to(journeyMounted, { autoAlpha: .12, scale: .84, rotation: 0, duration: .11 }, .37)
-    .to('.exploded-intro', { autoAlpha: 0, y: -24, duration: .055 }, .315)
-    .to(journeyHotspots, { x: 0, y: 0, autoAlpha: 1, duration: .08 }, .44)
-    .to(componentButtons, { autoAlpha: 1, scale: 1, stagger: .008, duration: .08 }, .46)
-    .to(componentButtons, { autoAlpha: 0, scale: .72, stagger: .006, duration: .06 }, .64)
-    .to(journeyHotspots, { autoAlpha: 0, duration: .05 }, .65)
-    .fromTo(journeyMounted, { y: '4vh', scale: .82, autoAlpha: .12 }, { y: 0, scale: .96, autoAlpha: 1, duration: .12 }, .68)
-    .to('.exploded-outro', { autoAlpha: 1, y: 0, duration: .075 }, .72)
-    .to(journeyMounted, { y: '-1vh', scale: .9, rotation: 1, duration: .12 }, .79)
-    .to(journeyMounted, { y: 0, scale: .96, rotation: 0, duration: .1 }, .9)
-    .to([journeyMounted, '.journey-caption'], { autoAlpha: 0, duration: .06 }, .965)
-    .to(journeyStage, { autoAlpha: 0, duration: .035 }, .965);
+  journeyTimeline
+    .fromTo(journeyMounted,
+      { x:() => getHeroState().x, y:() => getHeroState().y, scale:() => getHeroState().scale, rotation:0, autoAlpha:1 },
+      { x:0, y:0, scale:1, rotation:0, autoAlpha:1, duration:.17 }, 0)
+    .to(journeyVisual, { x:isMobile ? '28vw' : '13vw', y:isMobile ? '12vh' : 0, scale:isMobile ? .5 : .9, duration:.1 }, .17)
+    .to('.journey-caption', { autoAlpha:1, duration:.055 }, .12)
+    .to(journeyVisual, { x:0, y:0, scale:1, duration:.1 }, openStart - .1)
+    .to(journeyMounted, { y:0, scale:.92, rotation:0, autoAlpha:.1, duration:.09 }, openStart - .02)
+    .to('.exploded-intro', { autoAlpha:0, y:-22, duration:.055 }, openStart)
+    .to(journeyHotspots, { x:0, y:0, autoAlpha:1, duration:.055 }, exploreStart - .02)
+    .to(componentButtons, { autoAlpha:1, scale:1, stagger:.006, duration:.06 }, exploreStart)
+    .to(componentButtons, { autoAlpha:0, scale:.72, stagger:.005, duration:.05 }, exploreEnd - .015)
+    .to(journeyHotspots, { autoAlpha:0, duration:.04 }, exploreEnd)
+    .to(journeyMounted, { y:0, scale:1, rotation:0, autoAlpha:1, duration:.06 }, mountedReturn)
+    .to('.exploded-outro', { autoAlpha:1, y:0, duration:.065 }, mountedReturn)
+    .to(journeyMounted, { y:'-5vh', scale:.86, autoAlpha:0, duration:.04 }, .95)
+    .to(['.journey-caption',journeyStage], { autoAlpha:0, duration:.03 }, .97);
 
   pieceNodes.forEach((piece, index) => {
     const [sx,sy,ss,sr] = spread[piece.dataset.piece];
     const [ax,ay,as,ar] = assembled[piece.dataset.piece];
-    timeline
-      .to(piece, { x:sx, y:sy, scale:ss, rotation:sr, autoAlpha:1, duration:.13 }, .37 + index * .006)
-      .to(piece, { x:ax, y:ay, scale:as, rotation:ar, duration:.12 }, .64 + index * .004)
-      .to(piece, { autoAlpha:0, duration:.045 }, .715 + index * .003);
+    journeyTimeline
+      .to(piece, { x:ax, y:ay, scale:as, rotation:ar, autoAlpha:1, duration:.09 }, openStart - .025 + index * .003)
+      .to(piece, { x:sx, y:sy, scale:ss, rotation:sr, autoAlpha:1, duration:.12 }, spreadStart + index * .004)
+      .to(piece, { x:ax, y:ay, scale:as, rotation:ar, duration:.075 }, reassembleStart + index * .003)
+      .to(piece, { autoAlpha:0, duration:.035 }, .86 + index * .002);
   });
 
-  componentButtons.forEach((button, index) => {
-    gsap.to(button, { y: index % 2 ? 5 : -5, rotation: index % 2 ? 1.4 : -1.2, duration: 2.4 + index * .22, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+  journeyTimeline.eventCallback('onUpdate', () => {
+    const progress = journeyTimeline.progress();
+    const interactive = progress >= exploreStart && progress <= exploreEnd;
+    setComponentsInteractive(interactive);
+    if (journeyState) journeyState.textContent = interactive ? 'Toque para explorar' : progress < openStart ? 'Em movimento' : progress < exploreStart ? 'Abrindo engenharia' : 'Remontando';
   });
 }
 
@@ -479,26 +557,43 @@ const labDetail = document.querySelector('[data-lab-detail]');
 const labPoints = [...document.querySelectorAll('[data-lab-feature]')];
 const labModes = [...document.querySelectorAll('[data-lab-mode]')];
 
+if (reduceMotion) {
+  const spinMode = labModes.find(button => button.dataset.labMode === 'spin');
+  if (spinMode) {
+    spinMode.disabled = true;
+    spinMode.setAttribute('aria-disabled', 'true');
+    spinMode.title = 'Desativado pela preferência de movimento reduzido';
+  }
+}
+
 labPoints.forEach(point => point.addEventListener('click', () => {
   const alreadyActive = point.classList.contains('active');
-  labPoints.forEach(item => item.classList.remove('active'));
+  labPoints.forEach(item => {
+    item.classList.remove('active');
+    item.setAttribute('aria-expanded', 'false');
+  });
   if (alreadyActive) return labDetail?.classList.remove('open');
   point.classList.add('active');
+  point.setAttribute('aria-expanded', 'true');
   labDetail.querySelector('[data-lab-title]').textContent = point.dataset.labFeature;
   labDetail.querySelector('[data-lab-copy]').textContent = point.dataset.labCopy;
   labDetail.classList.add('open');
 }));
 
 labModes.forEach(button => button.addEventListener('click', () => {
+  if (reduceMotion && button.dataset.labMode === 'spin') return;
   const spin = button.dataset.labMode === 'spin';
   labModes.forEach(item => {
     const active = item === button;
     item.classList.toggle('active', active);
-    item.setAttribute('aria-selected', String(active));
+    item.setAttribute('aria-pressed', String(active));
   });
   productLab?.classList.toggle('spin-mode', spin);
   labDetail?.classList.remove('open');
-  labPoints.forEach(item => item.classList.remove('active'));
+  labPoints.forEach(item => {
+    item.classList.remove('active');
+    item.setAttribute('aria-expanded', 'false');
+  });
   if (!spin && hasGsap) gsap.to(labProduct, { x:0, rotationY:0, rotation:0, scale:1, duration:.7, ease:'power3.out' });
 }));
 
@@ -507,7 +602,7 @@ if (labScene && labProduct) {
   let dragStart = 0;
   let dragValue = 0;
   labScene.addEventListener('pointerdown', event => {
-    if (!productLab?.classList.contains('spin-mode')) return;
+    if (reduceMotion || !productLab?.classList.contains('spin-mode')) return;
     dragging = true;
     dragStart = event.clientX - dragValue;
     labScene.setPointerCapture?.(event.pointerId);
@@ -525,6 +620,13 @@ if (labScene && labProduct) {
   };
   labScene.addEventListener('pointerup', releaseLab);
   labScene.addEventListener('pointercancel', releaseLab);
+  labScene.addEventListener('keydown', event => {
+    if (reduceMotion || !productLab?.classList.contains('spin-mode') || !['ArrowLeft','ArrowRight'].includes(event.key)) return;
+    event.preventDefault();
+    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    dragValue = Math.max(-180, Math.min(180, dragValue + direction * 24));
+    if (hasGsap) gsap.to(labProduct, { x:dragValue * .16, rotationY:dragValue * .075, rotation:dragValue * .008, scale:1.02, duration:.3, overwrite:true, ease:'power2.out' });
+  });
 }
 
 if (hasGsap && !reduceMotion && productLab && labProduct) {
@@ -534,4 +636,193 @@ if (hasGsap && !reduceMotion && productLab && labProduct) {
   });
 }
 
-setupJourney();
+function waitForImage(image) {
+  if (!image) return Promise.resolve(false);
+  if (image.complete) {
+    if (!image.naturalWidth) return Promise.resolve(false);
+    return image.decode?.().then(() => true).catch(() => true) || Promise.resolve(true);
+  }
+  return new Promise(resolve => {
+    const finish = result => {
+      image.removeEventListener('load', loaded);
+      image.removeEventListener('error', failed);
+      resolve(result);
+    };
+    const loaded = () => image.decode?.().then(() => finish(true)).catch(() => finish(true));
+    const failed = () => finish(false);
+    image.addEventListener('load', loaded, { once: true });
+    image.addEventListener('error', failed, { once: true });
+  });
+}
+
+function setXrayPosition(x, y = 50) {
+  if (!xrayStage) return;
+  const safeX = Math.max(7, Math.min(93, Number(x)));
+  const safeY = Math.max(13, Math.min(87, Number(y)));
+  xrayStage.style.setProperty('--xray-x', `${safeX}%`);
+  xrayStage.style.setProperty('--xray-y', `${safeY}%`);
+  if (xrayRange) xrayRange.value = String(Math.round(safeX));
+}
+
+async function renderXray(modelKey = selectedModel) {
+  if (!featureProduct || !xrayCanvas || !models[modelKey]) return;
+  const expectedSource = new URL(models[modelKey].mounted, document.baseURI).href;
+  await waitForImage(featureProduct);
+  if (modelKey !== selectedModel || featureProduct.currentSrc && featureProduct.currentSrc !== expectedSource && featureProduct.src !== expectedSource) return;
+
+  const cached = xrayCache.get(modelKey);
+  const context = xrayCanvas.getContext('2d');
+  if (!context) return;
+  if (cached) {
+    xrayCanvas.width = cached.width;
+    xrayCanvas.height = cached.height;
+    context.putImageData(cached.image, 0, 0);
+    xrayOverlay?.classList.remove('fallback');
+    return;
+  }
+
+  try {
+    const naturalWidth = featureProduct.naturalWidth || 1200;
+    const naturalHeight = featureProduct.naturalHeight || 800;
+    const width = Math.min(960, naturalWidth);
+    const height = Math.max(1, Math.round(width * naturalHeight / naturalWidth));
+    const source = document.createElement('canvas');
+    source.width = width;
+    source.height = height;
+    const sourceContext = source.getContext('2d', { willReadFrequently: true });
+    sourceContext.drawImage(featureProduct, 0, 0, width, height);
+    const sourcePixels = sourceContext.getImageData(0, 0, width, height);
+    const grayscale = new Uint8ClampedArray(width * height);
+    const output = sourceContext.createImageData(width, height);
+    const [red, green, blue] = models[modelKey].edge;
+
+    for (let index = 0, pixel = 0; index < sourcePixels.data.length; index += 4, pixel += 1) {
+      grayscale[pixel] = sourcePixels.data[index] * .2126 + sourcePixels.data[index + 1] * .7152 + sourcePixels.data[index + 2] * .0722;
+    }
+    for (let y = 1; y < height - 1; y += 1) {
+      for (let x = 1; x < width - 1; x += 1) {
+        const index = y * width + x;
+        const gx = -grayscale[index - width - 1] + grayscale[index - width + 1]
+          - 2 * grayscale[index - 1] + 2 * grayscale[index + 1]
+          - grayscale[index + width - 1] + grayscale[index + width + 1];
+        const gy = -grayscale[index - width - 1] - 2 * grayscale[index - width] - grayscale[index - width + 1]
+          + grayscale[index + width - 1] + 2 * grayscale[index + width] + grayscale[index + width + 1];
+        const magnitude = Math.min(255, Math.hypot(gx, gy));
+        if (magnitude < 25) continue;
+        const outputIndex = index * 4;
+        output.data[outputIndex] = red;
+        output.data[outputIndex + 1] = green;
+        output.data[outputIndex + 2] = blue;
+        output.data[outputIndex + 3] = Math.min(245, 50 + magnitude * 1.25);
+      }
+    }
+
+    xrayCanvas.width = width;
+    xrayCanvas.height = height;
+    context.putImageData(output, 0, 0);
+    xrayCache.set(modelKey, { width, height, image: output });
+    xrayOverlay?.classList.remove('fallback');
+  } catch (_) {
+    xrayOverlay?.style.setProperty('--xray-source', `url("${models[modelKey].mounted}")`);
+    xrayOverlay?.classList.add('fallback');
+  }
+}
+
+if (xrayStage) {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchAxis = null;
+  const moveLens = event => {
+    const rect = xrayStage.getBoundingClientRect();
+    setXrayPosition((event.clientX - rect.left) / rect.width * 100, (event.clientY - rect.top) / rect.height * 100);
+  };
+  xrayStage.addEventListener('pointermove', event => {
+    if (event.pointerType !== 'touch') return moveLens(event);
+    if (!xrayStage.hasPointerCapture?.(event.pointerId)) return;
+    const dx = Math.abs(event.clientX - touchStartX);
+    const dy = Math.abs(event.clientY - touchStartY);
+    if (!touchAxis && Math.max(dx, dy) > 10) touchAxis = dx > dy ? 'x' : 'y';
+    if (touchAxis !== 'x') return;
+    event.preventDefault();
+    moveLens(event);
+  });
+  xrayStage.addEventListener('pointerdown', event => {
+    if (event.target === xrayRange) return;
+    if (event.pointerType !== 'touch') return moveLens(event);
+    touchStartX = event.clientX;
+    touchStartY = event.clientY;
+    touchAxis = null;
+    xrayStage.setPointerCapture?.(event.pointerId);
+  });
+  xrayStage.addEventListener('pointerup', event => xrayStage.releasePointerCapture?.(event.pointerId));
+  xrayStage.addEventListener('pointercancel', event => xrayStage.releasePointerCapture?.(event.pointerId));
+  xrayRange?.addEventListener('input', event => setXrayPosition(event.target.value, 52));
+}
+
+function setLoaderProgress(value) {
+  const progress = Math.max(0, Math.min(100, Math.round(value)));
+  loader?.style.setProperty('--loader-progress', String(progress / 100));
+  loaderBar?.style.setProperty('--loader-progress', String(progress / 100));
+  if (loaderCount) loaderCount.textContent = String(progress).padStart(2, '0');
+}
+
+async function runLoader() {
+  const tasks = [
+    preloadModelAssets(selectedModel),
+    waitForImage(journeyMounted),
+    document.fonts?.ready || Promise.resolve(true)
+  ];
+  let completed = 0;
+  setLoaderProgress(4);
+  const tracked = tasks.map(task => Promise.resolve(task).finally(() => {
+    completed += 1;
+    setLoaderProgress(8 + completed / tasks.length * 82);
+  }));
+  await Promise.race([
+    Promise.allSettled(tracked),
+    new Promise(resolve => setTimeout(resolve, 4800))
+  ]);
+  await Promise.race([
+    renderXray(selectedModel),
+    new Promise(resolve => setTimeout(resolve, 1600))
+  ]);
+  setLoaderProgress(100);
+  setupJourney();
+  setupGlobalScrollUI();
+  if (hasGsap) ScrollTrigger.refresh();
+
+  const revealSite = () => {
+    document.body.classList.remove('is-loading');
+    loader?.classList.add('ready');
+    loader?.setAttribute('aria-hidden', 'true');
+    modelDock?.classList.add('visible');
+    if (main) main.inert = false;
+    if (header) header.inert = false;
+    if (modelDock) modelDock.inert = false;
+    updateScrollUI(0, 0);
+    if (hasGsap) requestAnimationFrame(() => requestAnimationFrame(() => {
+      ScrollTrigger.refresh(true);
+      ScrollTrigger.update();
+    }));
+  };
+  if (!loader || !hasGsap || reduceMotion) return revealSite();
+
+  document.body.classList.remove('is-loading');
+  gsap.timeline({ defaults: { overwrite: true }, onComplete: revealSite })
+    .to('.loader-status', { autoAlpha: 0, y: 18, duration: .25, ease: 'power2.in' }, .18)
+    .to('.loader-brand', { xPercent: 8, autoAlpha: 0, duration: .5, ease: 'power2.in' }, .22)
+    .to(loader, { clipPath: 'inset(0 0 100% 0)', duration: .78, ease: 'power4.inOut' }, .32);
+}
+
+let journeyLayout = innerWidth <= 900 ? 'mobile' : 'desktop';
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    journeyLayout = innerWidth <= 900 ? 'mobile' : 'desktop';
+    if (hasGsap && !reduceMotion) setupJourney();
+    if (hasGsap) ScrollTrigger.refresh(true);
+  }, 180);
+});
+
+runLoader();
